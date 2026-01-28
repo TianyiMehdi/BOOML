@@ -1,0 +1,114 @@
+defaults:
+    - override hydra/launcher: submitit_local
+
+# environment
+task: humanoid_h1hand-run-v0
+obs: state
+
+# evaluation
+checkpoint: ???
+eval_episodes: 10
+eval_pi: true
+eval_diffusion: false
+eval_value: false
+eval_freq: 50000
+
+# training
+steps: 1_001_000
+batch_size: 256
+score_coef: 1.0
+reward_coef: 0.1
+value_coef: 0.1
+consistency_coef: 20
+rho: 0.5
+lr: 3e-4
+enc_lr_scale: 0.3
+grad_clip_norm: 20
+tau: 0.01
+discount_denom: 5
+discount_min: 0.95
+discount_max: 0.995
+buffer_size: 1_000_000
+data_dir: ???
+exp_name: booml
+
+# planning
+mpc: true
+langevin_iterations: 5
+mppi_iterations: 6
+eta: 5e-3
+num_samples: 512
+num_pi_trajs: 24
+num_elites: 64
+topk_samples: 8
+max_grad_norm: 25.0
+min_grad_norm: 1e-4
+horizon: 3
+min_std: 0.05
+max_std: 2
+temperature: 0.5
+alpha: 1.0
+use_score_function: true
+train_score_function: true
+
+# actor
+actor_mode: residual
+log_std_min: -10
+log_std_max: 2
+prior_coef: 0.1
+scale_threshold: 2.0
+entropy_coef: 1e-4
+awac_lambda: 0.3333
+exp_adv_min: 0.1
+exp_adv_max: 10.0
+
+# critic
+num_bins: 101
+vmin: -10
+vmax: +10
+
+# architecture
+model_size: ???
+num_enc_layers: 2
+enc_dim: 256
+num_channels: 32
+mlp_dim: 512
+latent_dim: 512
+task_dim: 96
+num_q: 5
+num_v: 5
+dropout: 0.01
+simnorm_dim: 8
+
+# logging
+wandb_project: humanoid-bench
+wandb_entity: your_entity
+wandb_silent: false
+disable_wandb: false
+save_csv: true
+
+# misc
+save_video: false
+save_agent: false
+seed: 1
+
+# convenience
+work_dir: ???
+task_title: ???
+multitask: false
+tasks: ???
+obs_shape: ???
+action_dim: ???
+episode_length: ???
+obs_shapes: ???
+action_dims: ???
+episode_lengths: ???
+seed_steps: ???
+bin_size: ???
+
+# humanoid envs
+policy_path: ???
+mean_path: ???
+var_path: ???
+policy_type: ???
+small_obs: ???
