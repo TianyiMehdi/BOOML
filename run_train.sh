@@ -10,7 +10,6 @@ if command -v conda >/dev/null 2>&1; then
   conda activate "${CONDA_ENV_NAME}"
 fi
 
-# 直接在这里改默认值，也可以在命令行前面临时覆盖：
 # CUDA_VISIBLE_DEVICES=0 TASK=walker-run SEED=1 ./run_train.sh
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 TASK="${TASK:-dog-run}"
@@ -27,14 +26,12 @@ DISABLE_WANDB="${DISABLE_WANDB:-true}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 EXTRA_ARGV=()
 if [ -n "${EXTRA_ARGS}" ]; then
-  # 额外 hydra 覆盖项，按空格拆分即可，例如：
   # EXTRA_ARGS="horizon=5 num_samples=256" ./run_train.sh
   read -r -a EXTRA_ARGV <<< "${EXTRA_ARGS}"
 fi
 
 export CUDA_VISIBLE_DEVICES
 
-# 集群上无本地代理时取消代理，避免 wandb 连本地代理失败
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
 
 echo "Launching training with:"
