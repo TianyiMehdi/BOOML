@@ -22,9 +22,7 @@ from termcolor import colored
 from booml.common.parser import parse_cfg
 from booml.common.seed import set_seed
 from booml.envs import make_env
-from booml.boom_alg import BOOM
 from booml.booml_alg import BOOML
-from booml.booml_alg_adaptive import BOOML_adaptive
 
 torch.set_num_threads(1)
 torch.set_num_interop_threads(1)
@@ -33,20 +31,12 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 
 
-def _make_agent(cfg):
-    if cfg.exp_name == "booml":
-        return BOOML(cfg)
-    if cfg.exp_name == "adaptive":
-        return BOOML_adaptive(cfg)
-    if cfg.exp_name == "boom":
-        return BOOM(cfg)
-    raise ValueError(f"Unknown exp_name: {cfg.exp_name}")
-
-
 @hydra.main(config_name="config", config_path=".")
 def evaluate(cfg: dict):
     assert cfg.eval_episodes > 0, "Must evaluate at least 1 episode."
     cfg = parse_cfg(cfg)
+    if cfg.exp_name != "booml":
+        raise ValueError(f"Unknown exp_name: {cfg.exp_name}")
     set_seed(cfg.seed)
 
     print("pid:", os.getpid(), flush=True)
@@ -54,7 +44,7 @@ def evaluate(cfg: dict):
     print(colored(f"Agent: {cfg.exp_name}", "blue", attrs=["bold"]))
 
     env = make_env(cfg)
-    agent = _make_agent(cfg)
+    agent = BOOML(cfg)
 
     checkpoint = None
     try:

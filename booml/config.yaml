@@ -34,7 +34,6 @@ discount_max: 0.995
 buffer_size: 1_000_000
 data_dir: ???
 exp_name: booml
-adaptive_laro_trigger: improvement
 res_coef: 100
 
 # planning
