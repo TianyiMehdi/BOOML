@@ -1,6 +1,6 @@
 # [ICML 2026] BOOML-MBRL
 
-Code for *Langevin Rollout Optimization for Modelic Reinforcement Learning*.
+This is the official implementation of **Langevin Rollout Optimization for Modelic Reinforcement Learning**.
 
 ## Installation
 
