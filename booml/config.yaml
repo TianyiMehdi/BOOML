@@ -2,7 +2,10 @@ defaults:
     - override hydra/launcher: submitit_local
 
 # environment
-task: humanoid_h1hand-run-v0
+# dmc: Walker Run, Walker stand, Walker Walk Quadruped Run Quadruped Walk
+# hbench: sit-hard, 
+# task: humanoid_h1hand-sit_hard-v0
+task: dog-run
 obs: state
 
 # evaluation
@@ -31,6 +34,8 @@ discount_max: 0.995
 buffer_size: 1_000_000
 data_dir: ???
 exp_name: booml
+adaptive_laro_trigger: improvement
+res_coef: 100
 
 # planning
 mpc: true
@@ -81,8 +86,8 @@ dropout: 0.01
 simnorm_dim: 8
 
 # logging
-wandb_project: humanoid-bench
-wandb_entity: your_entity
+wandb_project: worldmodel
+wandb_entity: mehdizhang-tsinghua-university
 wandb_silent: false
 disable_wandb: false
 save_csv: true
@@ -90,7 +95,7 @@ save_csv: true
 # misc
 save_video: false
 save_agent: false
-seed: 1
+seed: 2
 
 # convenience
 work_dir: ???

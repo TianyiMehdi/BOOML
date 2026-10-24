@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.vscode/
+.codex
+
+logs/
+outputs/
+plot_data/
+BOOML-paper/
+rebuttal-*.md
+
+.wandb/
+wandb/
+*.ckpt
+*.pth
+*.pt

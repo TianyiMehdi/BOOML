@@ -43,9 +43,11 @@ class BOOML:
 					if self.cfg.multitask
 					else []
 				},
-				{"params": self.model._score_function.parameters()},
 			],
 			lr=self.cfg.lr,
+		)
+		self.score_optim = torch.optim.Adam(
+			self.model._score_function.parameters(), lr=self.cfg.lr, eps=1e-5
 		)
 		self.pi_optim = torch.optim.Adam(
 			self.model._pi.parameters(), lr=self.cfg.lr, eps=1e-5
@@ -67,6 +69,8 @@ class BOOML:
 		self.alpha = getattr(cfg, 'alpha', 1.0)
 		self.use_score_function = getattr(cfg, 'use_score_function', True)
 		self.train_score_function = getattr(cfg, 'train_score_function', True)
+		self._latest_langevin_grad_norm = float("nan")
+		self._latest_langevin_grad_norm_clipped = float("nan")
 
 	def _get_discount(self, episode_length):
 		"""
@@ -198,6 +202,8 @@ class BOOML:
 		eta = getattr(self.cfg, 'eta', 5e-3)
 		
 		z_eval_langevin = z_langevin.detach()
+		langevin_grad_norms = []
+		langevin_grad_norms_clipped = []
 		
 		if self.use_score_function:
 			a_0 = pi_a0.detach()
@@ -218,7 +224,10 @@ class BOOML:
 					max_grad_norm / (grad_norm + 1e-12),
 					torch.ones_like(grad_norm)
 				)
-				grad = grad * clip_factor	
+				grad = grad * clip_factor
+				clipped_grad_norm = grad.norm(dim=1, keepdim=True)
+				langevin_grad_norms.append(grad_norm_mean)
+				langevin_grad_norms_clipped.append(clipped_grad_norm.mean().item())
 
 				a_0 = (a_0 - (eta / self.alpha) * grad + (2 * eta) ** 0.5 * torch.randn_like(a_0)).clamp(-1, 1)
 				
@@ -241,13 +250,23 @@ class BOOML:
 						max_grad_norm / (grad_norm + 1e-12),
 						torch.ones_like(grad_norm)
 					)
-					grad = grad * clip_factor	
+					grad = grad * clip_factor
+					clipped_grad_norm = grad.norm(dim=1, keepdim=True)
+					langevin_grad_norms.append(grad_norm_mean)
+					langevin_grad_norms_clipped.append(clipped_grad_norm.mean().item())
 
 					a_0 = (a_0 - eta * grad + (2 * eta) ** 0.5 * torch.randn_like(a_0)).clamp(-1, 1)
 					a_0 = a_0.detach().requires_grad_(True)
 					
 					if grad_norm_mean < min_grad_norm:
 						break
+
+		if langevin_grad_norms:
+			self._latest_langevin_grad_norm = float(np.mean(langevin_grad_norms))
+			self._latest_langevin_grad_norm_clipped = float(np.mean(langevin_grad_norms_clipped))
+		else:
+			self._latest_langevin_grad_norm = float("nan")
+			self._latest_langevin_grad_norm_clipped = float("nan")
 		
 		langevin_a0 = a_0.detach()
 		# ========== Part 3: MPPI optimization (parallel, independent from Langevin) ==========
@@ -388,7 +407,7 @@ class BOOML:
 		prior_loss = - (log_pis_prior.sum(dim=-1) * rho).mean()
 
 		q_loss = ((self.cfg.entropy_coef * log_pis - qs).mean(dim=(1, 2)) * rho).mean()
-		pi_loss = q_loss + (self.cfg.action_dim / 100) * prior_loss
+		pi_loss = q_loss + (self.cfg.action_dim / self.cfg.res_coef) * prior_loss
 
 		pi_loss.backward()
 		torch.nn.utils.clip_grad_norm_(
@@ -479,9 +498,27 @@ class BOOML:
 		reward_loss *= 1 / self.cfg.horizon
 		value_loss *= 1 / (self.cfg.horizon * self.cfg.num_q)
 
+		# Combine all losses
+		total_loss = (
+			self.cfg.consistency_coef * consistency_loss
+			+ self.cfg.reward_coef * reward_loss
+			+ self.cfg.value_coef * value_loss
+		)
+			
+		# Update model
+		total_loss.backward()
+		grad_norm = torch.nn.utils.clip_grad_norm_(
+			self.model.parameters(), self.cfg.grad_clip_norm
+		)
+		self.optim.step()
+
+		# Update policy
+		pi_loss, pi_loss_q, pi_loss_prior  = self.update_pi(_zs.detach(), action.detach(), mu.detach(), std.detach(), task, step)
+		
 		# ========== Compute score function loss ==========
 		score_loss = torch.tensor(0.0, device=self.device)
 		if self.train_score_function:
+			self.score_optim.zero_grad(set_to_none=True)
 			z_train = _zs[0].detach()  # [batch_size, latent_dim]
 			a_train = action[0].detach()  # [batch_size, action_dim]
 			
@@ -508,23 +545,11 @@ class BOOML:
 			
 			score_loss = F.mse_loss(pred_grad, true_grad.detach())
 
-		# Combine all losses
-		total_loss = (
-			self.cfg.consistency_coef * consistency_loss
-			+ self.cfg.reward_coef * reward_loss
-			+ self.cfg.value_coef * value_loss
-			+ self.cfg.score_coef * score_loss
-		)
-			
-		# Update model
-		total_loss.backward()
-		grad_norm = torch.nn.utils.clip_grad_norm_(
-			self.model.parameters(), self.cfg.grad_clip_norm
-		)
-		self.optim.step()
-
-		# Update policy
-		pi_loss, pi_loss_q, pi_loss_prior  = self.update_pi(_zs.detach(), action.detach(), mu.detach(), std.detach(), task, step)
+			score_loss.backward()
+			score_grad_norm = torch.nn.utils.clip_grad_norm_(
+				self.model._score_function.parameters(), self.cfg.grad_clip_norm
+			)
+			self.score_optim.step()
 		
 		# Update target Q-functions
 		self.model.soft_update_target_Q()
@@ -540,7 +565,8 @@ class BOOML:
 			"pi_loss_prior": pi_loss_prior,
 			"total_loss": float(total_loss.mean().item()),
 			"grad_norm": float(grad_norm),
+			"langevin_grad_norm": self._latest_langevin_grad_norm,
+			"langevin_grad_norm_clipped": self._latest_langevin_grad_norm_clipped,
 			"pi_scale": float(self.scale.value),
 			"score_loss": float(score_loss.item())
 		}
-

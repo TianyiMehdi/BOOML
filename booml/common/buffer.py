@@ -16,8 +16,15 @@ class Buffer:
         self.cfg = cfg
         if sys.platform == "darwin":
             self._device = torch.device("cpu")
+        elif torch.cuda.is_available():
+            try:
+                torch.zeros(1, device="cuda")
+                self._device = torch.device("cuda")
+            except RuntimeError as exc:
+                print(f"CUDA unavailable for buffer, falling back to CPU: {exc}")
+                self._device = torch.device("cpu")
         else:
-            self._device = torch.device("cuda")
+            self._device = torch.device("cpu")
         self._capacity = min(cfg.buffer_size, cfg.steps)
         self._sampler = SliceSampler(
             num_slices=self.cfg.batch_size,
@@ -53,7 +60,7 @@ class Buffer:
     def _init(self, tds):
         """Initialize the replay buffer. Use the first episode to estimate storage requirements."""
         print(f"Buffer capacity: {self._capacity:,}")
-        if sys.platform == "darwin":
+        if self._device.type != "cuda":
             mem_free = 0
         else:
             mem_free, _ = torch.cuda.mem_get_info()
@@ -70,7 +77,7 @@ class Buffer:
         total_bytes = bytes_per_step * self._capacity
         print(f"Storage required: {total_bytes/1e9:.2f} GB")
         # Heuristic: decide whether to use CUDA or CPU memory
-        storage_device = "cuda" if 2.5 * total_bytes < mem_free else "cpu"
+        storage_device = "cuda" if self._device.type == "cuda" and 2.5 * total_bytes < mem_free else "cpu"
         print(f"Using {storage_device.upper()} memory for storage.")
         return self._reserve_buffer(
             LazyTensorStorage(self._capacity, device=torch.device(storage_device))

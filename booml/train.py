@@ -26,13 +26,12 @@ from booml.common.seed import set_seed
 from booml.common.buffer import Buffer
 from booml.envs import make_env
 from booml.booml_alg import BOOML
+from booml.boom_alg import BOOM
+from booml.booml_alg_adaptive import BOOML_adaptive
 from booml.trainer.online_trainer import OnlineTrainer
 from booml.common.logger import Logger
 
 torch.backends.cudnn.benchmark = True
-import os
-import wandb
-os.environ["WANDB_API_KEY"] = 'your_api_key'
 
 @hydra.main(config_name="config", config_path=".")
 def train(cfg: dict):
@@ -43,13 +42,32 @@ def train(cfg: dict):
 
     trainer_cls = OnlineTrainer
     
-    trainer = trainer_cls(
-        cfg=cfg,
-        env=make_env(cfg),
-        agent=BOOML(cfg),
-        buffer=Buffer(cfg),
-        logger=Logger(cfg),
-    )
+    if cfg.exp_name == 'booml':
+        trainer = trainer_cls(
+            cfg=cfg,
+            env=make_env(cfg),
+            agent=BOOML(cfg),
+            buffer=Buffer(cfg),
+            logger=Logger(cfg),
+        )
+    elif cfg.exp_name == 'adaptive':
+        trainer = trainer_cls(
+            cfg=cfg,
+            env=make_env(cfg),
+            agent=BOOML_adaptive(cfg),
+            buffer=Buffer(cfg),
+            logger=Logger(cfg),
+        )
+    elif cfg.exp_name == 'boom':
+        trainer = trainer_cls(
+            cfg=cfg,
+            env=make_env(cfg),
+            agent=BOOM(cfg),
+            buffer=Buffer(cfg),
+            logger=Logger(cfg),
+        )
+    else:
+        raise ValueError(f"Unknown exp_name: {cfg.exp_name}")
     trainer.train()
     print("\nTraining completed successfully")
 

@@ -66,9 +66,7 @@ def make_env(cfg):
         env = make_multitask_env(cfg)
 
     else:
-        env = None
-        env = make_humanoid_env(cfg)
-        # env = make_dm_control_env(cfg)
+        env = make_humanoid_env(cfg) if cfg.task.startswith("humanoid_") else make_dm_control_env(cfg)
         
         if env is None:
             raise ValueError(
