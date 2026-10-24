@@ -1,29 +1,33 @@
-# BOOM-L
+# [ICML 2026] BOOML-MBRL
 
-Code for *Langevin Rollout Optimization for Modelic Reinforcement Learning* (ICML 2026).
+Code for *Langevin Rollout Optimization for Modelic Reinforcement Learning*.
 
-BOOM-L combines Langevin Rollout Optimization (LaRO) and MPPI through Maximum Look-Ahead Planning (MLAP). The score network predicts the negative look-ahead return gradient, which LaRO subtracts to ascend the return. It is trained with a separate Adam optimizer in this implementation.
-
-## Setup
+## Installation
 
 ```bash
+conda create -n booml python=3.10 -y
 conda activate booml
 pip install -e .
 pip install -r requirement.txt
 ```
 
-## Train and evaluate
+## Training
 
 ```bash
 ./run_train.sh
 TASK=humanoid_h1hand-run-v0 SEED=1 ./run_train.sh
 TASK=dog-run EXTRA_ARGS="save_agent=true" ./run_train.sh
-python -m booml.evaluate task=dog-run exp_name=booml checkpoint=logs/dog-run/2/booml/models/final.pt
 ```
 
-The script defaults to `exp_name=booml`, `task=dog-run`, and local logging. Set `EXP_NAME=boom` for the BOOM baseline or `EXP_NAME=adaptive` for adaptive LaRO. Set `DISABLE_WANDB=false` and configure WandB credentials to enable online logging.
+The script defaults to BOOM-L on `dog-run`. Set `TASK`, `SEED`, and `CUDA_VISIBLE_DEVICES` as needed. Checkpoints are saved when `save_agent=true`.
 
-## Main benchmark tasks
+## Evaluation
+
+```bash
+python -m booml.evaluate task=dog-run exp_name=booml checkpoint=/path/to/final.pt
+```
+
+## Tasks
 
 | DMC | Humanoid Bench |
 | --- | --- |
@@ -34,3 +38,13 @@ The script defaults to `exp_name=booml`, `task=dog-run`, and local logging. Set 
 | `dog-walk` | `humanoid_h1hand-walk-v0` |
 | `dog-trot` | `humanoid_h1hand-sit_simple-v0` |
 | `dog-run` | `humanoid_h1hand-hurdle-v0` |
+
+## Citation
+
+```bibtex
+@inproceedings{zhanglangevin,
+  title={Langevin Rollout Optimization for Modelic Reinforcement Learning},
+  author={Zhang, Tianyi and Wang, Likun and Zhan, Guojian and Zhang, Feihong and Guan, Yang and Lyu, Yao and Li, Shengbo Eben},
+  booktitle={Forty-third International Conference on Machine Learning}
+}
+```
